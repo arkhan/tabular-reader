@@ -5,24 +5,26 @@ description = "Read XLSX, XLS and CSV files with a uniform interface Read XLSX, 
 authors = ["arkhan <arkhan@riseup.net>"]
 license = "MIT"
 readme = "README.org"
-homepage = "https://github.com/arkhan/tabular-reader"
 repository = "https://github.com/arkhan/tabular-reader"
-keywords = ["tabular","spreadsheet", "csv", "xlsx", "xls", "reader"]
+keywords = ["spreadsheet", "csv", "xlsx", "xls", "reader"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
 ]
 
 [tool.poetry.dependencies]
-python = "^3.7"
+python = "^3.6"
 openpyxl = ">=3.0,<3.1"
 
 [tool.poetry.group.dev.dependencies]
@@ -31,5 +33,5 @@ black = "^21.0"
 flake8 = "^3.9"
 
 [build-system]
-require = ["poetry-core>=1.0.0"]
+requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
