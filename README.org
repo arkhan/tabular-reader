@@ -1,4 +1,6 @@
-﻿* tabular_reader
+﻿#+TITLE: tabular-reader
+
+* tabular_reader
 
 ** Description
 A module that maps information from each row in XLSX, XLS, or CSV
