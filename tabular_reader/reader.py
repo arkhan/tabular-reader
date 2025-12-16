@@ -3,8 +3,6 @@ import csv
 import os
 from types import SimpleNamespace
 
-from openpyxl import load_workbook
-
 
 def get_file_format(filename):
     _, ext = os.path.splitext(filename)
@@ -28,7 +26,25 @@ def read_csv(filename, **kwargs):
     ]
 
 
+def read_xls(filename, worksheet="", **kwargs):
+    import xlrd
+
+    wb = xlrd.open_workbook(filename)
+    ws = wb.sheet_by_name(worksheet) if worksheet else wb.sheet_by_index(0)
+
+    total = [[cell.value for cell in row] for row in ws.get_rows()]
+    header = total[0] if total else []
+    filtered_indices = [
+        i for i, val in enumerate(header) if val is not None and str(val).strip() != ""
+    ]
+    return [
+        [row[i] if i < len(row) else None for i in filtered_indices] for row in total
+    ]
+
+
 def read_xlsx(filename, worksheet="", **kwargs):
+    from openpyxl import load_workbook
+
     excel_kwargs = {
         k: v for k, v in kwargs.items() if k not in ["delimiter", "encoding"]
     }
@@ -61,8 +77,10 @@ class TabularReader:
 
         if file_format == "csv":
             filtered_data = read_csv(filename, **kwargs)
-        elif file_format in ("xlsx", "xls"):
+        elif file_format == "xlsx":
             filtered_data = read_xlsx(filename, worksheet, **kwargs)
+        elif file_format == "xls":
+            filtered_data = read_xls(filename, worksheet, **kwargs)
         else:
             raise ValueError(f"Unsupported format: {file_format}")
 
