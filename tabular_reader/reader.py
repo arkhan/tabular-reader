@@ -1,21 +1,34 @@
 #!/usr/bin/env python
 import csv
+import io
 import os
 from types import SimpleNamespace
 
 
 def get_file_format(filename):
+    if isinstance(filename, (io.BytesIO, bytes)):
+        return None
     _, ext = os.path.splitext(filename)
     return ext.lower().lstrip(".")
 
 
-def read_csv(filename, **kwargs):
+def read_csv(source, **kwargs):
     csv_kwargs = {
         k: v for k, v in kwargs.items() if k in ["delimiter", "quotechar", "encoding"]
     }
-    with open(filename, "r", encoding=csv_kwargs.pop("encoding", "utf-8-sig")) as f:
+
+    if isinstance(source, io.BytesIO):
+        source.seek(0)
+        f = io.TextIOWrapper(source, encoding=csv_kwargs.pop("encoding", "utf-8-sig"))
+    else:
+        f = open(source, "r", encoding=csv_kwargs.pop("encoding", "utf-8-sig"))
+
+    try:
         reader = csv.reader(f, **csv_kwargs)
         total = list(reader)
+    finally:
+        if not isinstance(source, io.BytesIO):
+            f.close()
 
     header = total[0] if total else []
     filtered_indices = [
@@ -26,10 +39,15 @@ def read_csv(filename, **kwargs):
     ]
 
 
-def read_xls(filename, worksheet="", **kwargs):
+def read_xls(source, worksheet="", **kwargs):
     import xlrd
 
-    wb = xlrd.open_workbook(filename)
+    if isinstance(source, io.BytesIO):
+        source.seek(0)
+        wb = xlrd.open_workbook(file_contents=source.read())
+    else:
+        wb = xlrd.open_workbook(source)
+
     ws = wb.sheet_by_name(worksheet) if worksheet else wb.sheet_by_index(0)
 
     total = [[cell.value for cell in row] for row in ws.get_rows()]
@@ -42,13 +60,17 @@ def read_xls(filename, worksheet="", **kwargs):
     ]
 
 
-def read_xlsx(filename, worksheet="", **kwargs):
+def read_xlsx(source, worksheet="", **kwargs):
     from openpyxl import load_workbook
 
     excel_kwargs = {
         k: v for k, v in kwargs.items() if k not in ["delimiter", "encoding"]
     }
-    wb = load_workbook(filename, **excel_kwargs)
+
+    if isinstance(source, io.BytesIO):
+        source.seek(0)
+
+    wb = load_workbook(source, **excel_kwargs)
     ws = worksheet and wb[worksheet] or wb.active
 
     total = [[col.value for col in row] for row in ws]
@@ -64,7 +86,7 @@ def read_xlsx(filename, worksheet="", **kwargs):
 class TabularReader:
     def __init__(
         self,
-        filename,
+        source,
         worksheet="",
         fieldnames=None,
         restval=None,
@@ -73,14 +95,16 @@ class TabularReader:
         *args,
         **kwargs,
     ):
-        file_format = get_file_format(filename)
+        file_format = get_file_format(source)
 
-        if file_format == "csv":
-            filtered_data = read_csv(filename, **kwargs)
+        if file_format is None:
+            filtered_data = self._detect_and_read_bytes(source, worksheet, **kwargs)
+        elif file_format == "csv":
+            filtered_data = read_csv(source, **kwargs)
         elif file_format == "xlsx":
-            filtered_data = read_xlsx(filename, worksheet, **kwargs)
+            filtered_data = read_xlsx(source, worksheet, **kwargs)
         elif file_format == "xls":
-            filtered_data = read_xls(filename, worksheet, **kwargs)
+            filtered_data = read_xls(source, worksheet, **kwargs)
         else:
             raise ValueError(f"Unsupported format: {file_format}")
 
@@ -90,6 +114,27 @@ class TabularReader:
         self.restval = restval
         self.skip_blank_lines = skip_blank_lines
         self.line_num = 0
+
+    def _detect_and_read_bytes(self, source, worksheet, **kwargs):
+        errors = []
+
+        for fmt, reader_func in [
+            ("xlsx", read_xlsx),
+            ("xls", read_xls),
+            ("csv", read_csv),
+        ]:
+            try:
+                if isinstance(source, io.BytesIO):
+                    source.seek(0)
+                return reader_func(source, worksheet, **kwargs)
+            except Exception as e:
+                errors.append((fmt, str(e)))
+                if isinstance(source, io.BytesIO):
+                    source.seek(0)
+
+        raise ValueError(
+            f"Could not detect file format. Tried: {', '.join(f[0] for f in errors)}"
+        )
 
     @property
     def fieldnames(self):
