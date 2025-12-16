@@ -1,4 +1,4 @@
-﻿[tool.poetry]
+[tool.poetry]
 name = "tabular-reader"
 version = "0.1.0"
 description = "Read XLSX, XLS and CSV files with a uniform interface Read XLSX, XLS and CSV files with a uniform interface"
@@ -19,15 +19,13 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
 ]
 
 [tool.poetry.dependencies]
 python = "^3.7"
 openpyxl = ">=3.0,<3.1"
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 pytest = "^6.2"
 black = "^21.0"
 flake8 = "^3.9"
