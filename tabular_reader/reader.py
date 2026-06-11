@@ -17,6 +17,8 @@ def read_csv(source, **kwargs):
         k: v for k, v in kwargs.items() if k in ["delimiter", "quotechar", "encoding"]
     }
 
+    if isinstance(source, bytes):
+        source = io.BytesIO(source)
     if isinstance(source, io.BytesIO):
         source.seek(0)
         f = io.TextIOWrapper(source, encoding=csv_kwargs.pop("encoding", "utf-8-sig"))
@@ -39,9 +41,11 @@ def read_csv(source, **kwargs):
     ]
 
 
-def read_xls(source, worksheet="", **kwargs):
+def read_xls(source, worksheet="", skip_rows=0, **kwargs):
     import xlrd
 
+    if isinstance(source, bytes):
+        source = io.BytesIO(source)
     if isinstance(source, io.BytesIO):
         source.seek(0)
         wb = xlrd.open_workbook(file_contents=source.read())
@@ -51,7 +55,8 @@ def read_xls(source, worksheet="", **kwargs):
     ws = wb.sheet_by_name(worksheet) if worksheet else wb.sheet_by_index(0)
 
     total = [[cell.value for cell in row] for row in ws.get_rows()]
-    header = total[0] if total else []
+    header_idx = skip_rows if skip_rows < len(total) else 0
+    header = total[header_idx] if total else []
     filtered_indices = [
         i for i, val in enumerate(header) if val is not None and str(val).strip() != ""
     ]
@@ -60,13 +65,14 @@ def read_xls(source, worksheet="", **kwargs):
     ]
 
 
-def read_xlsx(source, worksheet="", **kwargs):
+def read_xlsx(source, worksheet="", skip_rows=0, **kwargs):
     from openpyxl import load_workbook
 
-    excel_kwargs = {
-        k: v for k, v in kwargs.items() if k not in ["delimiter", "encoding"]
-    }
+    _OPENPYXL_KWARGS = {"read_only", "keep_vba", "data_only", "keep_links", "rich_text"}
+    excel_kwargs = {k: v for k, v in kwargs.items() if k in _OPENPYXL_KWARGS}
 
+    if isinstance(source, bytes):
+        source = io.BytesIO(source)
     if isinstance(source, io.BytesIO):
         source.seek(0)
 
@@ -74,7 +80,8 @@ def read_xlsx(source, worksheet="", **kwargs):
     ws = worksheet and wb[worksheet] or wb.active
 
     total = [[col.value for col in row] for row in ws]
-    header = total[0] if total else []
+    header_idx = skip_rows if skip_rows < len(total) else 0
+    header = total[header_idx] if total else []
     filtered_indices = [
         i for i, val in enumerate(header) if val is not None and str(val).strip() != ""
     ]
@@ -93,19 +100,22 @@ class TabularReader:
         restkey=None,
         skip_blank_lines=False,
         skip_rows=0,
+        skip_row=None,
         *args,
         **kwargs,
     ):
+        if skip_row is not None and not skip_rows:
+            skip_rows = skip_row
         file_format = get_file_format(source)
 
         if file_format is None:
-            filtered_data = self._detect_and_read_bytes(source, worksheet, **kwargs)
+            filtered_data = self._detect_and_read_bytes(source, worksheet, skip_rows=skip_rows, **kwargs)
         elif file_format == "csv":
             filtered_data = read_csv(source, **kwargs)
         elif file_format == "xlsx":
-            filtered_data = read_xlsx(source, worksheet, **kwargs)
+            filtered_data = read_xlsx(source, worksheet, skip_rows=skip_rows, **kwargs)
         elif file_format == "xls":
-            filtered_data = read_xls(source, worksheet, **kwargs)
+            filtered_data = read_xls(source, worksheet, skip_rows=skip_rows, **kwargs)
         else:
             raise ValueError(f"Unsupported format: {file_format}")
 
@@ -119,8 +129,10 @@ class TabularReader:
         self.skip_blank_lines = skip_blank_lines
         self.line_num = 0
 
-    def _detect_and_read_bytes(self, source, worksheet, **kwargs):
+    def _detect_and_read_bytes(self, source, worksheet, skip_rows=0, **kwargs):
         errors = []
+        if isinstance(source, bytes):
+            source = io.BytesIO(source)
 
         for fmt, reader_func in [
             ("xlsx", read_xlsx),
@@ -130,15 +142,14 @@ class TabularReader:
             try:
                 if isinstance(source, io.BytesIO):
                     source.seek(0)
-                return reader_func(source, worksheet, **kwargs)
+                return reader_func(source, worksheet, skip_rows=skip_rows, **kwargs)
             except Exception as e:
                 errors.append((fmt, str(e)))
                 if isinstance(source, io.BytesIO):
                     source.seek(0)
 
-        raise ValueError(
-            f"Could not detect file format. Tried: {', '.join(f[0] for f in errors)}"
-        )
+        details = "; ".join(f"{fmt}: {err}" for fmt, err in errors)
+        raise ValueError(f"Could not detect file format. Tried: {details}")
 
     @property
     def fieldnames(self):
