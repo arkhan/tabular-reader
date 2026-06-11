@@ -92,6 +92,7 @@ class TabularReader:
         restval=None,
         restkey=None,
         skip_blank_lines=False,
+        skip_rows=0,
         *args,
         **kwargs,
     ):
@@ -107,6 +108,9 @@ class TabularReader:
             filtered_data = read_xls(source, worksheet, **kwargs)
         else:
             raise ValueError(f"Unsupported format: {file_format}")
+
+        if skip_rows:
+            filtered_data = filtered_data[skip_rows:]
 
         self.reader = iter(filtered_data)
         self._fieldnames = fieldnames
