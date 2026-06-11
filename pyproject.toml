@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "tabular-reader"
-version = "0.1.3"
+version = "0.1.4"
 description = "Read XLSX, XLS and CSV files with a uniform interface Read XLSX, XLS and CSV files with a uniform interface"
 authors = ["arkhan <arkhan@riseup.net>"]
 license = "MIT"
